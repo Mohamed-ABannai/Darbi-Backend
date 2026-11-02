@@ -51,6 +51,7 @@ const userSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
+
 userSchema.set("toJSON", {
   transform: (document, returnedObject) => {
     delete returnedObject.hashedPassword;
