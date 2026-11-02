@@ -7,11 +7,14 @@ TrainingPlan:{
     ref:'TrainingPlan',
 },
 rating:{
-    type:Number
+    type:Number,
+    required:true
 },
 patience:{
     type:Number,
-    
+    required:true,
+    min:1,
+    max:5
 },
 raiseVoice:{
     type:Boolean
