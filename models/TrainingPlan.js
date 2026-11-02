@@ -26,3 +26,5 @@ const traningPlanSchema= new mongoose.Schema({
 },{timestamps:true})
 
 const TrainingPlan= mongoose.model('TrainingPlan',traningPlanSchema)
+
+module.exports=TrainingPlan
