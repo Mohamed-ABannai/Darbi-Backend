@@ -7,23 +7,21 @@ const jwt = require("jsonwebtoken");
 
 router.post("/sign-up", async (req, res) => {
   try {
-    const { username, password,phone,email,role,dateOfBirth,hourlyRate,isApproved } = req.body;
+    const { username, password, phone, email, dateOfBirth } = req.body;
 
     // Validation
     if (!username || !password) return res.status(400).json({message: "Username and password are required.",});
-    if (password.length < 6) return res.status(400).json({message: "Password must be more than 6 characters",});
+    if (typeof password !== "string" || password.length < 6) return res.status(400).json({message: "Password must be at least 6 characters",});
 
     const user = await User.create({
-      username,
+      username: username.trim().toLowerCase(),
       hashedPassword: await bcrypt.hash(password, 12),
       phone,
       email,
-      role,
       dateOfBirth,
-      hourlyRate,
-      isApproved
     });
 
+    console.log(user)
     const { _id, createdAt, updatedAt } = user;
 
     res
@@ -58,7 +56,7 @@ router.post("/sign-in", async (req, res) => {
         message: "Username and password are required.",
       });
     }
-    const user = await User.findOne({ username:username.toLowerCase().trim() });
+    const user = await User.findOne({ username: username.toLowerCase().trim() }).select("+hashedPassword");
     if (!user) {
       return res.status(401).json({ message: "Invalid credentials." });
     }
@@ -72,7 +70,7 @@ router.post("/sign-in", async (req, res) => {
     }
 
     // Construct the payload
-    const payload = { username: user.username, _id: user._id };
+    const payload = { username: user.username, _id: user._id, role: user.role };
 
 
     const accessToken = jwt.sign(payload, process.env.JWT_SECRET, {
@@ -83,6 +81,7 @@ router.post("/sign-in", async (req, res) => {
       user: {
         _id: user._id,
         username: user.username,
+        role: user.role,
       },
     });
   } catch (err) {

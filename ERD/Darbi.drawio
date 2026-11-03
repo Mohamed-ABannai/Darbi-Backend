@@ -119,7 +119,7 @@
             <mxRectangle height="40" width="30" as="alternateBounds" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="NdOsSFCAwtAQ8EI_MdoM-7" parent="NdOsSFCAwtAQ8EI_MdoM-5" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=0;right=0;align=left;spacingLeft=6;overflow=hidden;whiteSpace=wrap;html=1;" value="availabilty:datenTime" vertex="1">
+        <mxCell id="NdOsSFCAwtAQ8EI_MdoM-7" parent="NdOsSFCAwtAQ8EI_MdoM-5" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=0;right=0;align=left;spacingLeft=6;overflow=hidden;whiteSpace=wrap;html=1;" value="availability:Date" vertex="1">
           <mxGeometry height="40" width="210" x="30" as="geometry">
             <mxRectangle height="40" width="210" as="alternateBounds" />
           </mxGeometry>
@@ -187,7 +187,7 @@
             <mxRectangle height="30" width="30" as="alternateBounds" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="zeov3MGoYZX6RCU0AW7p-20" parent="zeov3MGoYZX6RCU0AW7p-18" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=0;right=0;align=left;spacingLeft=6;overflow=hidden;whiteSpace=wrap;html=1;" value="Learner:ObjectId,ref:&#39;user&#39;" vertex="1">
+        <mxCell id="zeov3MGoYZX6RCU0AW7p-20" parent="zeov3MGoYZX6RCU0AW7p-18" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=0;right=0;align=left;spacingLeft=6;overflow=hidden;whiteSpace=wrap;html=1;" value="Learner:ObjectId,ref:&#39;User&#39;" vertex="1">
           <mxGeometry height="30" width="170" x="30" as="geometry">
             <mxRectangle height="30" width="170" as="alternateBounds" />
           </mxGeometry>
@@ -200,7 +200,7 @@
             <mxRectangle height="30" width="30" as="alternateBounds" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="zeov3MGoYZX6RCU0AW7p-23" parent="zeov3MGoYZX6RCU0AW7p-21" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=0;right=0;align=left;spacingLeft=6;overflow=hidden;whiteSpace=wrap;html=1;" value="instructor:&#39;objectid&#39;,ref:&#39;user&#39;" vertex="1">
+        <mxCell id="zeov3MGoYZX6RCU0AW7p-23" parent="zeov3MGoYZX6RCU0AW7p-21" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=0;right=0;align=left;spacingLeft=6;overflow=hidden;whiteSpace=wrap;html=1;" value="instructor:ObjectId,ref:&#39;User&#39;" vertex="1">
           <mxGeometry height="30" width="170" x="30" as="geometry">
             <mxRectangle height="30" width="170" as="alternateBounds" />
           </mxGeometry>
@@ -273,7 +273,7 @@
             <mxRectangle height="30" width="30" as="alternateBounds" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="zeov3MGoYZX6RCU0AW7p-33" parent="zeov3MGoYZX6RCU0AW7p-31" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=0;right=0;align=left;spacingLeft=6;overflow=hidden;whiteSpace=wrap;html=1;" value="Learner:ObjectId,ref:&#39;user&#39;" vertex="1">
+        <mxCell id="zeov3MGoYZX6RCU0AW7p-33" parent="zeov3MGoYZX6RCU0AW7p-31" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=0;right=0;align=left;spacingLeft=6;overflow=hidden;whiteSpace=wrap;html=1;" value="Learner:ObjectId,ref:&#39;User&#39;" vertex="1">
           <mxGeometry height="30" width="180" x="30" as="geometry">
             <mxRectangle height="30" width="180" as="alternateBounds" />
           </mxGeometry>
@@ -286,7 +286,7 @@
             <mxRectangle height="30" width="30" as="alternateBounds" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="zeov3MGoYZX6RCU0AW7p-36" parent="zeov3MGoYZX6RCU0AW7p-34" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=0;right=0;align=left;spacingLeft=6;overflow=hidden;whiteSpace=wrap;html=1;" value="examiner:&#39;objectid&#39;,ref:&#39;user&#39;" vertex="1">
+        <mxCell id="zeov3MGoYZX6RCU0AW7p-36" parent="zeov3MGoYZX6RCU0AW7p-34" style="shape=partialRectangle;connectable=0;fillColor=none;top=0;left=0;bottom=0;right=0;align=left;spacingLeft=6;overflow=hidden;whiteSpace=wrap;html=1;" value="examiner:ObjectId,ref:&#39;User&#39;" vertex="1">
           <mxGeometry height="30" width="180" x="30" as="geometry">
             <mxRectangle height="30" width="180" as="alternateBounds" />
           </mxGeometry>
