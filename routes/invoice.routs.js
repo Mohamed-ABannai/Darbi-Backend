@@ -1,70 +1,43 @@
-const express = require('express');
-const router = express.Router();
-const Invoice = require('../models/invoice');
-const verifyToken = require('../middleware/verifyToken');
-const validateObjectId = require('../middleware/validateObjectId');
+const router = require("express").Router();
+const PDFDocument = require("pdfkit");
+const Invoice = require("../models/invoice");
+const TrainingPlan = require("../models/TrainingPlan");
+const verifyToken = require("../middleware/verifyToken");
+const validateObjectId = require("../middleware/validateObjectId");
 
-router.use(verifyToken);
-
-const handleError = (err, res) => {
-    console.error(err);
-    if (err.name === 'ValidationError' || err.name === 'CastError') {
-        return res.status(400).json({ message: err.message });
-    }
-    return res.status(500).json({ message: 'Internal Server Error' });
-};
-
-router.get('/', async (req, res) => {
+// READ PDF - GET /invoices/:id/pdf
+// PDF is only available after the invoice is paid
+router.get("/:id/pdf", verifyToken, validateObjectId, async (req, res) => {
     try {
-        const invoices = await Invoice.find().populate('TrainingPlan').sort({ date: -1 });
-        res.status(200).json(invoices);
-    } catch (err) {
-        handleError(err, res);
-    }
-});
+        const invoice = await Invoice.findById(req.params.id);
+        if (!invoice) {
+            return res.status(404).json({ message: "Invoice not found." });
+        }
 
-router.get('/:id', validateObjectId, async (req, res) => {
-    try {
-        const invoice = await Invoice.findById(req.params.id).populate('TrainingPlan');
-        if (!invoice) return res.status(404).json({ message: 'Invoice not found' });
-        res.status(200).json(invoice);
-    } catch (err) {
-        handleError(err, res);
-    }
-});
+        const plan = await TrainingPlan.findById(invoice.TrainingPlan);
+        const isMember =
+            plan && (String(plan.learner) === req.user._id || String(plan.instructor) === req.user._id);
+        if (!isMember && req.user.role !== "admin") {
+            return res.status(403).json({ message: "You can only download your own invoices." });
+        }
 
-router.post('/', async (req, res) => {
-    try {
-        const { TrainingPlan, date, amount, status } = req.body;
-        const invoice = await Invoice.create({ TrainingPlan, date, amount, status });
-        res.status(201).json(invoice);
-    } catch (err) {
-        handleError(err, res);
-    }
-});
+        if (invoice.status !== "paid") {
+            return res.status(403).json({ message: "Invoice is not paid yet." });
+        }
 
-router.put('/:id', validateObjectId, async (req, res) => {
-    try {
-        const { TrainingPlan, date, amount, status } = req.body;
-        const invoice = await Invoice.findByIdAndUpdate(
-            req.params.id,
-            { TrainingPlan, date, amount, status },
-            { new: true, runValidators: true }
-        );
-        if (!invoice) return res.status(404).json({ message: 'Invoice not found' });
-        res.status(200).json(invoice);
+        const doc = new PDFDocument();
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Content-Disposition", `attachment; filename=invoice-${invoice._id}.pdf`);
+        doc.pipe(res);
+        doc.fontSize(20).text("DARBI Invoice");
+        doc.moveDown();
+        doc.fontSize(12).text(`Invoice ID: ${invoice._id}`);
+        doc.text(`Date: ${invoice.date.toDateString()}`);
+        doc.text(`Amount: ${invoice.amount}`);
+        doc.text(`Status: ${invoice.status}`);
+        doc.end();
     } catch (err) {
-        handleError(err, res);
-    }
-});
-
-router.delete('/:id', validateObjectId, async (req, res) => {
-    try {
-        const invoice = await Invoice.findByIdAndDelete(req.params.id);
-        if (!invoice) return res.status(404).json({ message: 'Invoice not found' });
-        res.status(200).json({ message: 'Invoice deleted' });
-    } catch (err) {
-        handleError(err, res);
+        res.status(500).json({ message: "Internal Server Error" });
     }
 });
 
