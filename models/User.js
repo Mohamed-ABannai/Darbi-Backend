@@ -7,20 +7,25 @@ const userSchema = new mongoose.Schema(
       required: true,
       unique: true,
       trim: true,
-      lowercase: true
+      lowercase: true,
+      minlength: 3,
+      maxlength: 30
     },
     hashedPassword: {
       type: String,
-      required: true
+      required: true,
+      select: false
     },
     phone: {
       type: String,
-      maxLength: 8,
-      minLength: 8,
-      required: true
+      trim: true,
+      match: [/^\d{8}$/, "Phone number must contain exactly 8 digits"]
     },
     email: {
-      type: string
+      type: String,
+      trim: true,
+      lowercase: true,
+      match: [/^\S+@\S+\.\S+$/, "Please provide a valid email address"]
     },
     role: {
       type: String,
@@ -28,24 +33,28 @@ const userSchema = new mongoose.Schema(
       default: "learner",
       required: true
     },
-    availabilty: {
+    availability: {
       type: Date
     },
     isActive: {
       type: Boolean,
-      default: false
+      default: true
     },
     isApproved: {
-      type: Boolean
+      type: Boolean,
+      default: false
     },
     hourlyRate: {
-      type: Number
+      type: Number,
+      min: 0
     },
     documents: {
-      type: String
+      type: String,
+      trim: true
     },
-    dateOfBirth:{
-      type:Date
+    dateOfBirth: {
+      type: Date,
+      max: [Date.now, "Date of birth cannot be in the future"]
     }
   },
   { timestamps: true },

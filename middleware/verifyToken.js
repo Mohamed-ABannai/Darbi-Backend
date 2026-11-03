@@ -5,7 +5,12 @@ const jwt = require('jsonwebtoken');
 
 function verifyToken(req, res, next) {
   try {
-    const token = req.headers.authorization.split(' ')[1];
+    const authorization = req.headers.authorization;
+    if (!authorization || !authorization.startsWith('Bearer ')) {
+      return res.status(401).json({ err: 'Invalid token.' });
+    }
+
+    const token = authorization.split(' ')[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     // Assign decoded payload to req.user. Some tokens wrap the payload
