@@ -20,7 +20,7 @@ const userSchema = new mongoose.Schema(
       required: true
     },
     email: {
-      type: string
+      type: String
     },
     role: {
       type: String,
