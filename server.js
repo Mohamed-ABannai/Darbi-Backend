@@ -8,7 +8,7 @@ const cors = require('cors')
 
 // Routes Import
 const authRoutes = require('./routes/auth.routes')
-
+const trainingPlans=require('./routes/trainingPlans.routes.js')
 
 
 // Middleware
@@ -24,7 +24,7 @@ app.use(morgan('dev'))
 
 // Routes
 app.use('/auth',authRoutes)
-
+app.use('/training-plans',trainingPlans)
 
 // connect to database and listen on Port 3000
 async function startServer() {
