@@ -36,7 +36,8 @@ const userSchema = new mongoose.Schema(
       default: false
     },
     isApproved: {
-      type: Boolean
+      type: Boolean,
+      default:false
     },
     hourlyRate: {
       type: Number
