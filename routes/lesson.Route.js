@@ -1,51 +1,57 @@
-const router = require("express").Router();
-const PDFDocument = require("pdfkit");
-const Invoice = require("../models/invoice");
-const TrainingPlan = require("../models/TrainingPlan");
-const Lesson = require("../models/lesson");
-const Payment = require("../models/Payment");
-const verifyToken = require("../middleware/verifyToken");
-const validateObjectId = require("../middleware/validateObjectId");
+const express = require('express');
+const router = express.Router();
+const Lesson = require('../models/lesson');
+const verifyToken = require('../middleware/verifyToken');
+const validateObjectId = require('../middleware/validateObjectId');
 
-// READ PDF - GET /invoices/:id/pdf
-// PDF WILL BE VALID WHEN PPAYMENT IS DONE! 
-router.get("/:id/pdf", verifyToken, validateObjectId, async (req, res) => {
+router.use(verifyToken);
+
+router.get('/', async (req, res) => {
     try {
-        const invoice = await Invoice.findById(req.params.id);
-        if (!invoice) {
-            return res.status(404).json({ message: "Invoice not found." });
-        }
-
-        const plan = await TrainingPlan.findById(invoice.TrainingPlan);
-        const isMember =
-            plan && (String(plan.learner) === req.user._id || String(plan.instructor) === req.user._id);
-        if (!isMember && req.user.role !== "admin") {
-            return res.status(403).json({ message: "You are not authorized to download this Data!." });
-            console.log(`Unauthorized access attempt by user ${req.user._id}`);
-
-        }
-
-        const lessons = await Lesson.find({ TrainingPlan: invoice.TrainingPlan }).select("_id");
-        const confirmedPayment = await Payment.findOne({
-            lesson: { $in: lessons.map((lesson) => lesson._id) },
-            status: "completed",
-        });
-        if (!confirmedPayment) {
-            return res.status(403).json({ message: "Payment Failed!please try again." });
-        }
-
-        const doc = new PDFDocument();
-        res.setHeader("Content-Type", "application/pdf");
-        res.setHeader("Content-Disposition", `attachment; filename=invoice-${invoice._id}.pdf`);
-        doc.pipe(res);
-        doc.text("DARBI Invoice");
-        doc.text(`Invoice ID: ${invoice._id}`);
-        doc.text(`Date: ${invoice.date.toDateString()}`);
-        doc.text(`Amount: ${invoice.amount}`);
-        doc.text(`Payment method: ${confirmedPayment.method}`);
-        doc.end();
+        const lessons = await Lesson.find();
+        res.json(lessons);
     } catch (err) {
-        res.status(500).json({ message: "Internal Server Error" });
+        res.status(500).json({ message: err.message });
+    }
+});
+
+router.get('/:id', validateObjectId, async (req, res) => {
+    try {
+        const lesson = await Lesson.findById(req.params.id);
+        if (!lesson) return res.status(404).json({ message: 'Lesson not found' });
+        res.json(lesson);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+router.post('/', async (req, res) => {
+    const lesson = new Lesson(req.body);
+    try {
+        const newLesson = await lesson.save();
+        res.status(201).json(newLesson);
+    } catch (err) {
+        res.status(400).json({ message: err.message });
+    }
+});
+
+router.put('/:id', validateObjectId, async (req, res) => {
+    try {
+        const updatedLesson = await Lesson.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        if (!updatedLesson) return res.status(404).json({ message: 'Lesson not found' });
+        res.json(updatedLesson);
+    } catch (err) {
+        res.status(400).json({ message: err.message });
+    }
+});
+
+router.delete('/:id', validateObjectId, async (req, res) => {
+    try {
+        const deletedLesson = await Lesson.findByIdAndDelete(req.params.id);
+        if (!deletedLesson) return res.status(404).json({ message: 'Lesson not found' });
+        res.json({ message: 'Lesson deleted' });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
     }
 });
 
