@@ -9,7 +9,8 @@ const cors = require('cors')
 // Routes Import
 const authRoutes = require('./routes/auth.routes')
 const trainingPlans=require('./routes/trainingPlans.routes.js')
-
+const lessonRoutes = require('./routes/lesson.Route')
+const invoiceRoutes = require('./routes/invoice.routs')
 const userRoutes = require('./routes/user.routes.js')
 const drivingTestRoutes = require('./routes/DrivingTest.routes')
 
@@ -29,7 +30,10 @@ app.use(morgan('dev'))
 app.use('/auth',authRoutes)
 app.use('/training-plans',trainingPlans)
 app.use('/users',userRoutes)
-app.use('/driving-tests' , drivingTestRoutes)
+app.use('/driving-tests' , drivingTestRoutes)app.use('/lessons', lessonRoutes)
+app.use('/invoices', invoiceRoutes)
+
+
 
 // connect to database and listen on Port 3000
 async function startServer() {
