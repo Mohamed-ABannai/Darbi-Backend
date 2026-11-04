@@ -30,7 +30,8 @@ app.use(morgan('dev'))
 app.use('/auth',authRoutes)
 app.use('/training-plans',trainingPlans)
 app.use('/users',userRoutes)
-app.use('/driving-tests' , drivingTestRoutes)app.use('/lessons', lessonRoutes)
+app.use('/driving-tests' , drivingTestRoutes)
+app.use('/lessons', lessonRoutes)
 app.use('/invoices', invoiceRoutes)
 
 
