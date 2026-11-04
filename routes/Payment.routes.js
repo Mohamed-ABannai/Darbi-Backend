@@ -24,4 +24,13 @@ router.get("/", verifyToken, async (req, res) => {
   }
 });
 
+router.post("/", verifyToken, async (req, res) => {
+try {
+    
+} catch (error) {
+    
+}
+
+})
+
 module.exports = router;
