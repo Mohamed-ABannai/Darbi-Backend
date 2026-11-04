@@ -8,6 +8,7 @@ const cors = require('cors')
 
 // Routes Import
 const authRoutes = require('./routes/auth.routes')
+const trainingPlans=require('./routes/trainingPlans.routes.js')
 
 const userRoutes = require('./routes/user.routes.js')
 const drivingTestRoutes = require('./routes/DrivingTest.routes')
@@ -26,6 +27,7 @@ app.use(morgan('dev'))
 
 // Routes
 app.use('/auth',authRoutes)
+app.use('/training-plans',trainingPlans)
 app.use('/users',userRoutes)
 app.use('/driving-tests' , drivingTestRoutes)
 
