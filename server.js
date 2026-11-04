@@ -12,7 +12,7 @@ const trainingPlans=require('./routes/trainingPlans.routes.js')
 
 const userRoutes = require('./routes/user.routes.js')
 const drivingTestRoutes = require('./routes/DrivingTest.routes')
-
+const paymentRoutes = require('./routes/Payment.routes.js')
 
 // Middleware
 app.use(
@@ -30,6 +30,9 @@ app.use('/auth',authRoutes)
 app.use('/training-plans',trainingPlans)
 app.use('/users',userRoutes)
 app.use('/driving-tests' , drivingTestRoutes)
+app.use('/payments', paymentRoutes)
+
+
 
 // connect to database and listen on Port 3000
 async function startServer() {
