@@ -72,4 +72,13 @@ router.post("/", verifyToken, async (req, res) => {
   }
 });
 
+
+router.put("/:id", verifyToken, async (req, res) => {
+    try {
+        
+    } catch (error) {
+        
+    }
+})
+
 module.exports = router;
