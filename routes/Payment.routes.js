@@ -1,7 +1,8 @@
 const router = require("express").Router();
 const verifyToken = require("../middleware/verifyToken");
 const Payment = require("../models/Payment");
-const User = require("../models/User");
+const TrainingPlan = require("../models/TrainingPlan");
+const Lesson = require("../models/lesson");
 
 router.get("/", verifyToken, async (req, res) => {
   try {
@@ -25,12 +26,50 @@ router.get("/", verifyToken, async (req, res) => {
 });
 
 router.post("/", verifyToken, async (req, res) => {
-try {
-    const 
-} catch (error) {
-    res.status(500).json({ message: error.message });
-}
+  try {
+    if (req.user.role !== "learner") {
+      return res
+        .status(403)
+        .json({ message: "Only learners can create payments." });
+    }
 
-})
+    const { lesson, amount, method } = req.body;
+
+    if (!lesson || !amount || !method) {
+      return res.status(400).json({ message: "All fields are required." });
+    }
+
+    const checkLesson = await Lesson.findById(lesson).populate("TrainingPlan");
+    if (!checkLesson) {
+      return res.status(404).json({ message: "Lesson not found." });
+    }
+
+    if (checkLesson.TrainingPlan.learner.toString() !== req.user._id) {
+      return res
+        .status(403)
+        .json({ message: "You can only pay for your own lessons" });
+    }
+
+    const existingPayment = await Payment.findOne({
+      lesson: lesson,
+      status: "completed",
+    });
+    if (existingPayment) {
+      return res
+        .status(400)
+        .json({ message: "This lesson is already paid for" });
+    }
+
+    const newPayment = await Payment.create({
+      lesson,
+      amount,
+      method,
+      Learner: req.user._id,
+    });
+    res.status(201).json(newPayment);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
 
 module.exports = router;
