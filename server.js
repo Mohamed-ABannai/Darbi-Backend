@@ -10,6 +10,8 @@ const cors = require('cors')
 const authRoutes = require('./routes/auth.routes')
 
 const userRoutes = require('./routes/user.routes.js')
+const drivingTestRoutes = require('./routes/DrivingTest.routes')
+
 
 // Middleware
 app.use(
@@ -25,6 +27,7 @@ app.use(morgan('dev'))
 // Routes
 app.use('/auth',authRoutes)
 app.use('/users',userRoutes)
+app.use('/driving-tests' , drivingTestRoutes)
 
 // connect to database and listen on Port 3000
 async function startServer() {
