@@ -7,7 +7,7 @@ const jwt = require("jsonwebtoken");
 
 router.post("/sign-up", async (req, res) => {
   try {
-    const { username, password, phone, email, dateOfBirth,hourlyRate,role } = req.body;
+    const { username, password, phone, email, dateOfBirth,hourlyRate,role,isApproved,isActive } = req.body;
 
     // Validation
     if (!username || !password) return res.status(400).json({message: "Username and password are required.",});
@@ -20,7 +20,9 @@ router.post("/sign-up", async (req, res) => {
       email,
       dateOfBirth,
       hourlyRate,
-      role
+      role,
+      isApproved,
+      isActive
     });
 
     console.log(user)
