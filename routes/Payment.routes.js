@@ -26,9 +26,9 @@ router.get("/", verifyToken, async (req, res) => {
 
 router.post("/", verifyToken, async (req, res) => {
 try {
-    
+    const 
 } catch (error) {
-    
+    res.status(500).json({ message: error.message });
 }
 
 })

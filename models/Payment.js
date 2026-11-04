@@ -19,7 +19,7 @@ const paymentSchema = new mongoose.Schema(
       enum: ["pending", "completed", "rejected"],
       default: "pending",
     },
-    cancellationRReason: {
+    cancellationReason: {
       type: String,
     },
   },
