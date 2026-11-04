@@ -10,7 +10,6 @@ const DrivingTestSchema = new mongoose.Schema(
     examiner:{
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
-        required: true
     },
     date: {
         type: Date,
