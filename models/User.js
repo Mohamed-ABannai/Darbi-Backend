@@ -46,7 +46,7 @@ const userSchema = new mongoose.Schema(
     },
     hourlyRate: {
       type: Number,
-      min: 0
+      min: 22
     },
     documents: {
       type: String,
