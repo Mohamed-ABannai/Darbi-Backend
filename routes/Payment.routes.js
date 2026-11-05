@@ -72,13 +72,85 @@ router.post("/", verifyToken, async (req, res) => {
   }
 });
 
-
 router.put("/:id", verifyToken, async (req, res) => {
-    try {
-        
-    } catch (error) {
-        
+  try {
+    const payment = await Payment.findById(req.params.id).populate({
+      path: "lesson",
+      populate: { path: "TrainingPlan" },
+    });
+    if (!payment) {
+      return res.status(404).json({ message: "Payment not found" });
     }
-})
+    const plan = payment.lesson.TrainingPlan;
+
+    if (req.user.role === "learner") {
+      if (plan.learner.toString() !== req.user._id) {
+        return res
+          .status(403)
+          .json({ message: "You can only update your own payments" });
+      }
+
+      if (payment.status !== "pending") {
+        return res
+          .status(400)
+          .json({ message: "Only pending payments can be updated" });
+      }
+
+      const { amount, method } = req.body;
+      let updateFields = {};
+      if (amount) updateFields.amount = amount;
+      if (method) updateFields.method = method;
+
+      const updatedPayment = await Payment.findByIdAndUpdate(
+        req.params.id,
+        updateFields,
+        { new: true },
+      );
+
+      res.status(200).json(updatedPayment);
+    }
+
+    if (req.user.role === "instructor" || req.user.role === "admin") {
+      if (
+        req.user.role === "instructor" &&
+        plan.instructor.toString() !== req.user._id
+      ) {
+        return res
+          .status(403)
+          .json({
+            message: "You can only manage payments for your own students",
+          });
+      }
+
+      const { status, cancellationReason } = req.body;
+      let reviewFields = {};
+
+      if (status) {
+        if (!["completed", "rejected"].includes(status)) {
+          return res
+            .status(400)
+            .json({ message: "Status must be either completed or rejected" });
+        }
+        reviewFields.status = status;
+      }
+
+      if (cancellationReason) {
+        reviewFields.cancellationReason = cancellationReason;
+      }
+
+      const updatedPayment = await Payment.findByIdAndUpdate(
+        req.params.id,
+        reviewFields,
+        { new: true },
+      );
+
+      return res.status(200).json(updatedPayment);
+    }
+
+    return res.status(403).json({ message: "Access denied" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
 
 module.exports = router;
