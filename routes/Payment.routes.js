@@ -20,7 +20,7 @@ router.get("/", verifyToken, async (req, res) => {
         (payment) =>
           payment.lesson &&
           payment.lesson.TrainingPlan &&
-          payment.lesson.TrainingPlan.learner == req.user._id
+          payment.lesson.TrainingPlan.learner == req.user._id,
       );
       return res.status(200).json(myPayments);
     }
@@ -30,7 +30,7 @@ router.get("/", verifyToken, async (req, res) => {
         (payment) =>
           payment.lesson &&
           payment.lesson.TrainingPlan &&
-          payment.lesson.TrainingPlan.instructor == req.user._id
+          payment.lesson.TrainingPlan.instructor == req.user._id,
       );
       return res.status(200).json(instructorPayments);
     }
@@ -123,7 +123,7 @@ router.put("/:id", verifyToken, async (req, res) => {
       const updatedPayment = await Payment.findByIdAndUpdate(
         req.params.id,
         updateFields,
-        { new: true }
+        { new: true },
       );
 
       return res.status(200).json(updatedPayment);
@@ -139,7 +139,7 @@ router.put("/:id", verifyToken, async (req, res) => {
         });
       }
 
-      const { status, cancellationReason, cancellationRReason } = req.body;
+      const { status, cancellationReason } = req.body;
       let reviewFields = {};
 
       if (status) {
@@ -151,15 +151,14 @@ router.put("/:id", verifyToken, async (req, res) => {
         reviewFields.status = status;
       }
 
-      const reason = cancellationRReason || cancellationReason;
-      if (reason) {
-        reviewFields.cancellationRReason = reason;
+      if (req.body.cancellationReason) {
+        reviewFields.cancellationReason = req.body.cancellationReason;
       }
 
       const updatedPayment = await Payment.findByIdAndUpdate(
         req.params.id,
         reviewFields,
-        { new: true }
+        { new: true },
       );
 
       return res.status(200).json(updatedPayment);
