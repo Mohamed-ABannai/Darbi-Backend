@@ -68,3 +68,37 @@ router.post("/", verifyToken, async (req, res) => {
     return res.status(500).json({ message: error.message });
   }
 });
+
+router.put("/:id", verifyToken, async (req, res) => {
+  try {
+    const review = await Review.findById(req.params.id).populate("TrainingPlan");
+    if (!review) {
+      return res.status(404).json({ message: "Review not found." });
+    }
+
+    if (review.TrainingPlan.learner.toString() !== req.user._id) {
+      return res.status(403).json({ message: "You can only edit your own review." });
+    }
+
+    const { rating, patience, raiseVoice, comment } = req.body;
+    let updates = {};
+
+    if (rating !== undefined) updates.rating = rating;
+    if (patience !== undefined) updates.patience = patience;
+    if (raiseVoice !== undefined) updates.raiseVoice = raiseVoice;
+    if (comment !== undefined) updates.comment = comment;
+
+    const updatedReview = await Review.findByIdAndUpdate(
+      req.params.id,
+      updates,
+      { new: true, runValidators: true }
+    );
+
+    return res.status(200).json(updatedReview);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+
+module.exports = router;
