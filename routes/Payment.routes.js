@@ -1,27 +1,43 @@
 const router = require("express").Router();
 const verifyToken = require("../middleware/verifyToken");
 const Payment = require("../models/Payment");
-const TrainingPlan = require("../models/TrainingPlan");
 const Lesson = require("../models/lesson");
+const TrainingPlan = require("../models/TrainingPlan");
 
 router.get("/", verifyToken, async (req, res) => {
   try {
-    let filter = {};
+    const allPayments = await Payment.find().populate({
+      path: "lesson",
+      populate: { path: "TrainingPlan" },
+    });
 
-    if (req.user.role === "learner") {
-      filter = { Learner: req.user._id };
-    } else if (req.user.role === "instructor") {
-      filter = { instructor: req.user._id };
-    } else if (req.user.role === "admin") {
-      filter = {}; // Admin can see all payments
+    if (req.user.role === "admin") {
+      return res.status(200).json(allPayments);
     }
 
-    const allPayments = await Payment.find(filter)
-      .populate("Learner")
-      .populate("instructor");
-    return res.status(200).json(allPayments);
+    if (req.user.role === "learner") {
+      const myPayments = allPayments.filter(
+        (payment) =>
+          payment.lesson &&
+          payment.lesson.TrainingPlan &&
+          payment.lesson.TrainingPlan.learner == req.user._id
+      );
+      return res.status(200).json(myPayments);
+    }
+
+    if (req.user.role === "instructor") {
+      const instructorPayments = allPayments.filter(
+        (payment) =>
+          payment.lesson &&
+          payment.lesson.TrainingPlan &&
+          payment.lesson.TrainingPlan.instructor == req.user._id
+      );
+      return res.status(200).json(instructorPayments);
+    }
+
+    return res.status(403).json({ message: "Access denied" });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return res.status(500).json({ message: error.message });
   }
 });
 
@@ -64,11 +80,12 @@ router.post("/", verifyToken, async (req, res) => {
       lesson,
       amount,
       method,
-      Learner: req.user._id,
+      status: "pending",
     });
-    res.status(201).json(newPayment);
+
+    return res.status(201).json(newPayment);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return res.status(500).json({ message: error.message });
   }
 });
 
@@ -78,9 +95,11 @@ router.put("/:id", verifyToken, async (req, res) => {
       path: "lesson",
       populate: { path: "TrainingPlan" },
     });
+
     if (!payment) {
       return res.status(404).json({ message: "Payment not found" });
     }
+
     const plan = payment.lesson.TrainingPlan;
 
     if (req.user.role === "learner") {
@@ -104,10 +123,10 @@ router.put("/:id", verifyToken, async (req, res) => {
       const updatedPayment = await Payment.findByIdAndUpdate(
         req.params.id,
         updateFields,
-        { new: true },
+        { new: true }
       );
 
-      res.status(200).json(updatedPayment);
+      return res.status(200).json(updatedPayment);
     }
 
     if (req.user.role === "instructor" || req.user.role === "admin") {
@@ -115,14 +134,12 @@ router.put("/:id", verifyToken, async (req, res) => {
         req.user.role === "instructor" &&
         plan.instructor.toString() !== req.user._id
       ) {
-        return res
-          .status(403)
-          .json({
-            message: "You can only manage payments for your own students",
-          });
+        return res.status(403).json({
+          message: "You can only manage payments for your own students",
+        });
       }
 
-      const { status, cancellationReason } = req.body;
+      const { status, cancellationReason, cancellationRReason } = req.body;
       let reviewFields = {};
 
       if (status) {
@@ -134,14 +151,15 @@ router.put("/:id", verifyToken, async (req, res) => {
         reviewFields.status = status;
       }
 
-      if (cancellationReason) {
-        reviewFields.cancellationReason = cancellationReason;
+      const reason = cancellationRReason || cancellationReason;
+      if (reason) {
+        reviewFields.cancellationRReason = reason;
       }
 
       const updatedPayment = await Payment.findByIdAndUpdate(
         req.params.id,
         reviewFields,
-        { new: true },
+        { new: true }
       );
 
       return res.status(200).json(updatedPayment);
@@ -149,7 +167,7 @@ router.put("/:id", verifyToken, async (req, res) => {
 
     return res.status(403).json({ message: "Access denied" });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return res.status(500).json({ message: error.message });
   }
 });
 
