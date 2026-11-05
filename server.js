@@ -13,6 +13,7 @@ const lessonRoutes = require('./routes/lesson.Route')
 const invoiceRoutes = require('./routes/invoice.routs')
 const userRoutes = require('./routes/user.routes.js')
 const drivingTestRoutes = require('./routes/DrivingTest.routes')
+const reviewRoutes = require('./routes/Review.routes.js')
 const paymentRoutes = require('./routes/Payment.routes.js')
 
 // Middleware
@@ -30,12 +31,11 @@ app.use(morgan('dev'))
 app.use('/auth',authRoutes)
 app.use('/training-plans',trainingPlans)
 app.use('/users',userRoutes)
-app.use('/driving-tests' , drivingTestRoutes)
 app.use('/payments', paymentRoutes)
 app.use('/driving-tests' , drivingTestRoutes)
 app.use('/lessons', lessonRoutes)
 app.use('/invoices', invoiceRoutes)
-
+app.use('/reviews', reviewRoutes);
 
 
 // connect to database and listen on Port 3000
