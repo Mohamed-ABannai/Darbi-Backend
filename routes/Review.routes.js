@@ -101,4 +101,27 @@ router.put("/:id", verifyToken, async (req, res) => {
 });
 
 
+router.delete("/:id", verifyToken, async (req, res) => {
+  try {
+    const review = await Review.findById(req.params.id).populate("TrainingPlan");
+    if (!review) {
+      return res.status(404).json({ message: "Review not found." });
+    }
+
+    const isOwner = review.TrainingPlan.learner.toString() === req.user._id;
+    const isAdmin = req.user.role === "admin";
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ message: "You are not authorized to delete this review." });
+    }
+
+    await Review.findByIdAndDelete(req.params.id);
+
+    return res.status(200).json({ message: "Review deleted successfully." });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+
 module.exports = router;
