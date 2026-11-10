@@ -2,34 +2,43 @@ const mongoose = require("mongoose");
 
 const DrivingTestSchema = new mongoose.Schema(
   {
-    Learner:{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-        required: true
+    Learner: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true
     },
-    examiner:{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
+
+    examiner: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User"
     },
+
     date: {
-        type: Date,
-        required: true
+      type: Date,
+      required: true
     },
-    status:{
-        type: String,
-        enum: ["pending", "scheduled" , "completed", "cancelled"]
+
+    status: {
+      type: String,
+      enum: ["pending", "scheduled", "completed", "cancelled"],
+      default: "pending"
     },
-    result:{
-        type: String,
-        enum:[ "pending" , "passed" , "failed"]
+
+    result: {
+      type: String,
+      enum: ["pending", "passed", "failed"],
+      default: "pending"
     },
-    extraHours:{
-        type: Number,
-        default: 0
+
+    extraHours: {
+      type: Number,
+      default: 0,
+      min: 0
     }
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
 const DrivingTest = mongoose.model("DrivingTest", DrivingTestSchema);
+
 module.exports = DrivingTest;
