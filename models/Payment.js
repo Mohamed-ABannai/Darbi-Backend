@@ -5,26 +5,34 @@ const paymentSchema = new mongoose.Schema(
     lesson: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Lesson",
-      required: true,
+      required: true
     },
+
     amount: {
       type: Number,
+      required: true,
+      min: 0
     },
+
     method: {
       type: String,
       enum: ["Cash", "benefitPay", "bank transfer"],
+      required: true
     },
+
     status: {
       type: String,
       enum: ["pending", "completed", "rejected"],
-      default: "pending",
+      default: "pending"
     },
+
     cancellationReason: {
-      type: String,
-    },
+      type: String
+    }
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
-const payment = mongoose.model("Payment", paymentSchema);
-module.exports = payment;
+const Payment = mongoose.model("Payment", paymentSchema);
+
+module.exports = Payment;
