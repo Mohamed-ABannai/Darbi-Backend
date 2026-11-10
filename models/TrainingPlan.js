@@ -1,30 +1,49 @@
-const mongoose = require('mongoose')
+const mongoose = require("mongoose");
 
-const traningPlanSchema= new mongoose.Schema({
+const trainingPlanSchema = new mongoose.Schema(
+  {
+    learner: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true
+    },
 
-    learner:{
-        type:mongoose.Schema.Types.ObjectId,
-        ref:'User'
+    instructor: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true
     },
-    instructor:{
-        type:mongoose.Schema.Types.ObjectId,
-        ref:'User'
+
+    weeklySchedule: [
+      {
+        day: String,
+        startTime: String,
+        endTime: String
+      }
+    ],
+
+    status: {
+      type: String,
+      enum: [
+        "pending",
+        "active",
+        "rejected",
+        "cancelled",
+        "transferred",
+        "completed"
+      ],
+      default: "pending"
     },
-    weeklySchedule:{
-        type:Date
-    },
-    status:{
-        type:String,
-        enum:["pending","active","rejected","transferred","completed"]
-    },
-    reason:{
-        type:String,
-        minLength:20,
-        maxLength:140
+
+    reason: {
+      type: String,
+      minLength: 20,
+      maxLength: 140
     }
+  },
+  { timestamps: true }
+);
 
-},{timestamps:true})
+const TrainingPlan = mongoose.model("TrainingPlan", trainingPlanSchema);
 
-const TrainingPlan= mongoose.model('TrainingPlan',traningPlanSchema)
-
-module.exports=TrainingPlan
+module.exports = TrainingPlan;
