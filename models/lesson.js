@@ -13,6 +13,7 @@ const lessonSchema = new mongoose.Schema(
         hours: {
             type: Number,
             required: true,
+            min:0
         },
         status: {
             type: String,
