@@ -61,8 +61,8 @@ const userSchema = new mongoose.Schema(
     },
 
     documents: {
-      type: String,
-      trim: true
+      data: Buffer,
+      contentType: String
     },
 
     dateOfBirth: {
