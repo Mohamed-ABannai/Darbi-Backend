@@ -2,57 +2,71 @@ const router = require("express").Router();
 const Review = require("../models/Review");
 const TrainingPlan = require("../models/TrainingPlan");
 const verifyToken = require("../middleware/verifyToken");
+const validateObjectId = require("../middleware/validateObjectId");
+
 
 router.get("/", async (req, res) => {
   try {
-    const allReviews = await Review.find().populate({
-      path: "TrainingPlan",
-      populate: [
-        { path: "learner", select: "username" },
-        { path: "instructor", select: "username" },
-      ],
-    });
+    const reviews = await Review.find()
+      .populate("TrainingPlan");
 
-    if (req.query.instructor) {
-      const filteredReviews = allReviews.filter(
-        (review) =>
-          review.TrainingPlan &&
-          review.TrainingPlan.instructor &&
-          review.TrainingPlan.instructor._id == req.query.instructor
-      );
-      return res.status(200).json(filteredReviews);
-    }
+    return res.json(reviews);
 
-    return res.status(200).json(allReviews);
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({ message: "Server error" });
   }
 });
 
+
+router.get("/:id", validateObjectId, async (req, res) => {
+  try {
+    const review = await Review.findById(req.params.id)
+      .populate("TrainingPlan");
+
+    if (!review) {
+      return res.status(404).json({ message: "Review not found" });
+    }
+
+    return res.json(review);
+
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+
 router.post("/", verifyToken, async (req, res) => {
   try {
-    if (req.user.role !== "learner") {
-      return res.status(403).json({ message: "Only learners can create reviews." });
+    if (req.user.role != "learner") {
+      return res.status(403).json({ message: "Learners only" });
     }
 
     const { TrainingPlan: planId, rating, patience, raiseVoice, comment } = req.body;
 
-    if (!planId || !rating || !patience) {
-      return res.status(400).json({ message: "TrainingPlan, rating, and patience are required." });
+    if (!planId || rating == null || patience == null) {
+      return res.status(400).json({ message: "Missing fields" });
     }
 
     const plan = await TrainingPlan.findById(planId);
+
     if (!plan) {
-      return res.status(404).json({ message: "Training plan not found." });
+      return res.status(404).json({ message: "Training plan not found" });
     }
 
-    if (plan.learner.toString() !== req.user._id) {
-      return res.status(403).json({ message: "You can only review your own instructor." });
+    if (plan.learner != req.user._id) {
+      return res.status(403).json({ message: "Access denied" });
     }
 
-    const existingReview = await Review.findOne({ TrainingPlan: planId });
+    const existingReview = await Review.findOne({
+      TrainingPlan: planId
+    });
+
     if (existingReview) {
-      return res.status(400).json({ message: "You have already reviewed this training plan." });
+      return res.status(400).json({
+        message: "You already reviewed this training plan"
+      });
     }
 
     const newReview = await Review.create({
@@ -60,68 +74,86 @@ router.post("/", verifyToken, async (req, res) => {
       rating,
       patience,
       raiseVoice,
-      comment,
+      comment
     });
 
     return res.status(201).json(newReview);
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
+
+  } catch (err) {
+    console.log(err);
+    return res.status(400).json({ message: err.message });
   }
 });
 
-router.put("/:id", verifyToken, async (req, res) => {
+
+router.put("/:id", verifyToken, validateObjectId, async (req, res) => {
   try {
-    const review = await Review.findById(req.params.id).populate("TrainingPlan");
-    if (!review) {
-      return res.status(404).json({ message: "Review not found." });
+    if (req.user.role != "learner") {
+      return res.status(403).json({ message: "Learners only" });
     }
 
-    if (review.TrainingPlan.learner.toString() !== req.user._id) {
-      return res.status(403).json({ message: "You can only edit your own review." });
+    const review = await Review.findById(req.params.id);
+
+    if (!review) {
+      return res.status(404).json({ message: "Review not found" });
+    }
+
+    const plan = await TrainingPlan.findById(review.TrainingPlan);
+
+    if (!plan || plan.learner != req.user._id) {
+      return res.status(403).json({ message: "Access denied" });
     }
 
     const { rating, patience, raiseVoice, comment } = req.body;
-    let updates = {};
 
-    if (rating !== undefined) updates.rating = rating;
-    if (patience !== undefined) updates.patience = patience;
-    if (raiseVoice !== undefined) updates.raiseVoice = raiseVoice;
-    if (comment !== undefined) updates.comment = comment;
+    const updateData = {};
+
+    if (rating !== undefined) updateData.rating = rating;
+    if (patience !== undefined) updateData.patience = patience;
+    if (raiseVoice !== undefined) updateData.raiseVoice = raiseVoice;
+    if (comment !== undefined) updateData.comment = comment;
 
     const updatedReview = await Review.findByIdAndUpdate(
       req.params.id,
-      updates,
+      updateData,
       { new: true, runValidators: true }
     );
 
-    return res.status(200).json(updatedReview);
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
+    return res.json(updatedReview);
+
+  } catch (err) {
+    console.log(err);
+    return res.status(400).json({ message: err.message });
   }
 });
 
 
-router.delete("/:id", verifyToken, async (req, res) => {
+router.delete("/:id", verifyToken, validateObjectId, async (req, res) => {
   try {
-    const review = await Review.findById(req.params.id).populate("TrainingPlan");
+    const review = await Review.findById(req.params.id);
+
     if (!review) {
-      return res.status(404).json({ message: "Review not found." });
+      return res.status(404).json({ message: "Review not found" });
     }
 
-    const isOwner = review.TrainingPlan.learner.toString() === req.user._id;
-    const isAdmin = req.user.role === "admin";
+    const plan = await TrainingPlan.findById(review.TrainingPlan);
 
-    if (!isOwner && !isAdmin) {
-      return res.status(403).json({ message: "You are not authorized to delete this review." });
+    if (
+      (!plan || plan.learner != req.user._id) &&
+      req.user.role != "admin" &&
+      req.user.role != "superAdmin"
+    ) {
+      return res.status(403).json({ message: "Access denied" });
     }
 
-    await Review.findByIdAndDelete(req.params.id);
+    const deletedReview = await Review.findByIdAndDelete(req.params.id);
 
-    return res.status(200).json({ message: "Review deleted successfully." });
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
+    return res.json(deletedReview);
+
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({ message: "Server error" });
   }
 });
-
 
 module.exports = router;
