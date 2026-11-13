@@ -105,21 +105,28 @@ router.post("/", async (req, res) => {
   }
 });
 
+
 router.put("/:id", validateObjectId, async (req, res) => {
   try {
-    if (req.user.role != "instructor") {
-      return res.status(403).json({ message: "Instructors only" });
+    if (req.user.role != "instructor" && req.user.role != "learner") {
+      return res.status(403).json({ message: "Access denied" });
     }
 
     const lesson = await Lesson.findById(req.params.id);
-
     if (!lesson) {
       return res.status(404).json({ message: "Lesson not found" });
     }
 
     const plan = await TrainingPlan.findById(lesson.TrainingPlan);
+    if (!plan) {
+      return res.status(404).json({ message: "Training plan not found" });
+    }
 
-    if (!plan || plan.instructor != req.user._id) {
+    if (req.user.role == "instructor" && plan.instructor.toString() != req.user._id.toString()) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    if (req.user.role == "learner" && plan.learner.toString() != req.user._id.toString()) {
       return res.status(403).json({ message: "Access denied" });
     }
 
@@ -129,14 +136,23 @@ router.put("/:id", validateObjectId, async (req, res) => {
 
     const { date, hours, status, cancellationReason } = req.body;
 
+    if (req.user.role == "learner") {
+      if (status != "cancelled" || date !== undefined || hours !== undefined) {
+        return res.status(403).json({ message: "Learners can only cancel lessons" });
+      }
+    }
+
     if (status && status != "completed" && status != "cancelled") {
       return res.status(400).json({ message: "Invalid status" });
     }
 
     const updateData = {};
 
-    if (date !== undefined) updateData.date = date;
-    if (hours !== undefined) updateData.hours = hours;
+    if (req.user.role == "instructor") {
+      if (date !== undefined) updateData.date = date;
+      if (hours !== undefined) updateData.hours = hours;
+    }
+
     if (status !== undefined) updateData.status = status;
 
     if (status == "completed" && Number(hours === undefined ? lesson.hours : hours) <= 0) {
@@ -147,7 +163,6 @@ router.put("/:id", validateObjectId, async (req, res) => {
       if (!cancellationReason) {
         return res.status(400).json({ message: "Cancellation reason is required" });
       }
-
       updateData.cancellationReason = cancellationReason;
     }
 
@@ -158,12 +173,12 @@ router.put("/:id", validateObjectId, async (req, res) => {
     );
 
     return res.json(updatedLesson);
-
   } catch (err) {
     console.log(err);
     return res.status(400).json({ message: err.message });
   }
 });
+
 
 router.delete("/:id", validateObjectId, async (req, res) => {
   try {
