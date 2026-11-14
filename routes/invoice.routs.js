@@ -7,8 +7,11 @@ const validateObjectId = require("../middleware/validateObjectId");
 
 router.get("/:id/pdf", verifyToken, validateObjectId, async (req, res) => {
   try {
-    const invoice = await Invoice.findById(req.params.id);
+    let invoice = await Invoice.findById(req.params.id);
 
+    if (!invoice) {
+      invoice = await Invoice.findOne({ payment: req.params.id });
+    }
     if (!invoice) {
       return res.status(404).json({ message: "Invoice not found." });
     }
