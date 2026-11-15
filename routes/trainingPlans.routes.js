@@ -80,15 +80,8 @@ router.post("/", verifyToken, async (req, res) => {
       return res.status(403).json({ message: "Learners only" });
     }
 
-    const { instructor, weeklySchedule } = req.body;
-
-    if (
-      !instructor ||
-      !Array.isArray(weeklySchedule) ||
-      weeklySchedule.length == 0
-    ) {
-      return res.status(400).json({ message: "Missing fields" });
-    }
+    const { instructor, weeklySchedule = [] } = req.body;
+    if (!instructor || !Array.isArray(weeklySchedule)) return res.status(400).json({ message: "Instructor is required" });
 
     const foundInstructor = await User.findById(instructor);
 
@@ -151,29 +144,8 @@ router.put("/:id", verifyToken, validateObjectId, async (req, res) => {
       trainingPlan.learner == req.user._id
     ) {
       if (req.body.status == "cancelled") {
-        if (
-          trainingPlan.status != "pending" &&
-          trainingPlan.status != "active"
-        ) {
-          return res.status(400).json({ message: "Cannot cancel this plan" });
-        }
-
-        if (!req.body.reason) {
-          return res.status(400).json({ message: "Reason is required" });
-        }
-
-        const updatedPlan = await TrainingPlan.findByIdAndUpdate(
-          req.params.id,
-          {
-            status: "cancelled",
-            reason: req.body.reason
-          },
-          { new: true, runValidators: true }
-        );
-
-        return res.json(updatedPlan);
-      }
-      else if (req.body.instructor) {
+        return res.status(400).json({ message: "Cancel individual lessons instead of cancelling the training plan" });
+      } else if (req.body.instructor) {
         if (trainingPlan.status != "active") {
           return res.status(400).json({ message: "Plan must be active" });
         }
@@ -197,7 +169,7 @@ router.put("/:id", verifyToken, validateObjectId, async (req, res) => {
           status: "pending"
         });
 
-        const oldPlan = await TrainingPlan.findByIdAndUpdate(
+        await TrainingPlan.findByIdAndUpdate(
           req.params.id,
           { status: "transferred" },
           { new: true }

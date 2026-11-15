@@ -1,6 +1,8 @@
 const router = require("express").Router();
+const bcrypt = require("bcrypt");
 const User = require("../models/User");
 const verifyToken = require("../middleware/verifyToken");
+const authorizeRoles = require("../middleware/authorizeRoles");
 const validateObjectId = require("../middleware/validateObjectId");
 const multer = require("multer");
 
@@ -8,6 +10,86 @@ const storage = multer.memoryStorage();
 const upload = multer({
   storage: storage,
   limits: { fileSize: 5 * 1024 * 1024 }
+});
+
+router.get("/examiners", verifyToken, authorizeRoles("admin", "superAdmin"), async (req, res) => {
+  try {
+    const examiners = await User.find({ role: "examiner" })
+      .select("username email phone dateOfBirth isActive createdAt");
+    return res.json(examiners);
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({ message: "Failed to load examiners" });
+  }
+});
+
+router.post("/examiners", verifyToken, authorizeRoles("admin", "superAdmin"), async (req, res) => {
+  try {
+    const { username, password, phone, email, dateOfBirth } = req.body;
+
+    if (!username || !password || !phone || !email || !dateOfBirth || typeof password !== "string" || password.length < 6) {
+      return res.status(400).json({ message: "All fields are required and password must be at least 6 characters." });
+    }
+
+    const examiner = await User.create({
+      username: username.trim().toLowerCase(),
+      hashedPassword: await bcrypt.hash(password, 12),
+      phone,
+      email,
+      dateOfBirth,
+      role: "examiner",
+      isActive: true
+    });
+
+    return res.status(201).json({
+      _id: examiner._id,
+      username: examiner.username,
+      email: examiner.email,
+      phone: examiner.phone,
+      dateOfBirth: examiner.dateOfBirth,
+      role: examiner.role,
+      isActive: examiner.isActive
+    });
+  } catch (err) {
+    if (err.name === "ValidationError") {
+      return res.status(400).json({ message: err.message });
+    }
+    if (err.code === 11000) {
+      return res.status(409).json({ message: "Username already exists" });
+    }
+    console.log(err);
+    return res.status(500).json({ message: "Failed to create examiner" });
+  }
+});
+
+router.get("/examiners/:id", verifyToken, authorizeRoles("admin", "superAdmin"), validateObjectId, async (req, res) => {
+  try {
+    const examiner = await User.findOne({ _id: req.params.id, role: "examiner" })
+      .select("username email phone dateOfBirth isActive createdAt");
+    if (!examiner) return res.status(404).json({ message: "Examiner not found" });
+    return res.json(examiner);
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({ message: "Failed to load examiner" });
+  }
+});
+
+router.patch("/examiners/:id/status", verifyToken, authorizeRoles("admin", "superAdmin"), validateObjectId, async (req, res) => {
+  try {
+    if (typeof req.body.isActive !== "boolean") {
+      return res.status(400).json({ message: "A valid account status is required" });
+    }
+    const examiner = await User.findOneAndUpdate(
+      { _id: req.params.id, role: "examiner" },
+      { isActive: req.body.isActive },
+      { new: true }
+    ).select("username email phone dateOfBirth isActive createdAt");
+    if (!examiner) return res.status(404).json({ message: "Examiner not found" });
+    return res.json(examiner);
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({ message: "Failed to update examiner status" });
+  }
 });
 
 router.get("/", verifyToken, async (req, res) => {
@@ -154,7 +236,7 @@ router.put("/:id", verifyToken, validateObjectId, upload.single("profileImage"),
         }
       }
 
-      const updatedUser = await User.findByIdAndUpdate(
+      await User.findByIdAndUpdate(
         req.params.id,
         updateData,
         { new: true, runValidators: true }
@@ -186,7 +268,7 @@ router.put("/:id", verifyToken, validateObjectId, upload.single("profileImage"),
           req.body.isApproved === true || req.body.isApproved === "true";
       }
 
-      const updatedUser = await User.findByIdAndUpdate(
+      await User.findByIdAndUpdate(
         req.params.id,
         updateData,
         { new: true, runValidators: true }
@@ -225,7 +307,7 @@ router.delete("/:id", verifyToken, validateObjectId, async (req, res) => {
       req.user.role == "admin" ||
       req.user.role == "superAdmin"
     ) {
-      const deletedUser = await User.findByIdAndUpdate(
+      await User.findByIdAndUpdate(
         req.params.id,
         { isActive: false },
         { new: true }
