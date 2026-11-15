@@ -28,15 +28,15 @@ router.get("/:id/pdf", verifyToken, validateObjectId, async (req, res) => {
     const plan = payment.lesson.TrainingPlan;
 
     if (
-      plan.learner != req.user._id &&
-      plan.instructor != req.user._id &&
-      req.user.role != "admin" &&
-      req.user.role != "superAdmin"
+      plan.learner.toString() !== req.user._id.toString() &&
+      plan.instructor.toString() !== req.user._id.toString() &&
+      req.user.role !== "admin" &&
+      req.user.role !== "superAdmin"
     ) {
       return res.status(403).json({ message: "Access denied." });
     }
 
-    if (payment.status != "completed") {
+    if (payment.status !== "completed") {
       return res.status(403).json({ message: "Payment is not completed." });
     }
 
@@ -60,7 +60,6 @@ router.get("/:id/pdf", verifyToken, validateObjectId, async (req, res) => {
     doc.text(`Payment status: ${payment.status}`);
 
     doc.end();
-
   } catch (err) {
     console.log(err);
     return res.status(500).json({ message: "Server error" });

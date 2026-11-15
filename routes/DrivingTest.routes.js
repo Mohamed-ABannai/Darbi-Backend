@@ -4,31 +4,67 @@ const Lesson = require("../models/lesson");
 const TrainingPlan = require("../models/TrainingPlan");
 const verifyToken = require("../middleware/verifyToken");
 const validateObjectId = require("../middleware/validateObjectId");
-const User = require("../models/User");
 
 router.get("/", verifyToken, async (req, res) => {
   try {
     let filter = {};
 
-    if (req.user.role == "learner") {
+    if (req.user.role === "learner") {
       filter = { Learner: req.user._id };
-    }
-    else if (req.user.role == "examiner") {
-      filter = { examiner: req.user._id };
-    }
-    else if (
-      req.user.role != "admin" &&
-      req.user.role != "superAdmin"
+    } else if (req.user.role === "instructor") {
+      const plans = await TrainingPlan.find({ instructor: req.user._id });
+      const learnerIds = plans.map((plan) => plan.learner);
+      filter = { Learner: { $in: learnerIds } };
+    } else if (
+      req.user.role !== "admin" &&
+      req.user.role !== "superAdmin" &&
+      req.user.role !== "examiner"
     ) {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const allDrivingTests = await DrivingTest.find(filter)
+    const tests = await DrivingTest.find(filter)
+      .populate("Learner", "username")
+      .populate("examiner", "username")
+      .sort({ date: -1 });
+
+    return res.json(tests);
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+router.get("/:id", verifyToken, validateObjectId, async (req, res) => {
+  try {
+    const test = await DrivingTest.findById(req.params.id)
       .populate("Learner", "username")
       .populate("examiner", "username");
 
-    return res.json(allDrivingTests);
+    if (!test) {
+      return res.status(404).json({ message: "Driving test not found" });
+    }
 
+    if (
+      test.Learner._id.toString() === req.user._id.toString() ||
+      req.user.role === "admin" ||
+      req.user.role === "superAdmin" ||
+      req.user.role === "examiner"
+    ) {
+      return res.json(test);
+    }
+
+    if (req.user.role === "instructor") {
+      const hasPlan = await TrainingPlan.exists({
+        instructor: req.user._id,
+        learner: test.Learner._id
+      });
+      if (hasPlan) {
+        return res.json(test);
+      }
+    }
+
+    return res.status(403).json({ message: "Access denied" });
   } catch (err) {
     console.log(err);
     return res.status(500).json({ message: "Server error" });
@@ -37,82 +73,64 @@ router.get("/", verifyToken, async (req, res) => {
 
 router.post("/", verifyToken, async (req, res) => {
   try {
-    if (req.user.role != "learner") {
-      return res.status(403).json({
-        message: "Only learners can request driving tests"
-      });
+    if (req.user.role !== "learner") {
+      return res.status(403).json({ message: "Learners only" });
     }
 
-    const { date } = req.body;
+    const testDate = req.body.date || req.body.testDate;
 
-    if (!date) {
-      return res.status(400).json({ message: "Date is required" });
+    if (!testDate) {
+      return res.status(400).json({ message: "Test date is required" });
     }
 
-    const activePlan = await TrainingPlan.findOne({
-      learner: req.user._id,
-      status: "active"
-    });
-
-    if (!activePlan) {
-      return res.status(400).json({
-        message: "You need an active training plan"
-      });
-    }
-
-    const existingTest = await DrivingTest.findOne({
-      Learner: req.user._id,
-      status: { $in: ["pending", "scheduled"] }
-    });
-
-    if (existingTest) {
-      return res.status(400).json({
-        message: "You already have a pending or scheduled test"
-      });
-    }
-
-    const trainingPlans = await TrainingPlan.find({
-      learner: req.user._id
-    });
-
-    const planIds = trainingPlans.map((plan) => plan._id);
+    const plans = await TrainingPlan.find({ learner: req.user._id });
+    const planIds = plans.map((plan) => plan._id);
 
     const completedLessons = await Lesson.find({
       TrainingPlan: { $in: planIds },
       status: "completed"
     });
 
-    let totalHours = 0;
+    const totalCompletedHours = completedLessons.reduce(
+      (sum, lesson) => sum + lesson.hours,
+      0
+    );
 
-    for (const lesson of completedLessons) {
-      totalHours += lesson.hours;
-    }
-
-    const previousFails = await DrivingTest.find({
+    const failedTestsCount = await DrivingTest.countDocuments({
       Learner: req.user._id,
       result: "failed"
     });
 
-    const requiredHours = 22 + previousFails.length * 8;
+    const requiredHours = 22 + failedTestsCount * 8;
 
-    if (totalHours < requiredHours) {
+    if (totalCompletedHours < requiredHours) {
       return res.status(400).json({
-        message: `You completed ${totalHours} out of ${requiredHours} required hours`
+        message: `You need at least ${requiredHours} completed hours to book a driving test (current: ${totalCompletedHours} hrs).`
       });
+    }
+
+    const pendingTest = await DrivingTest.findOne({
+      Learner: req.user._id,
+      result: "pending"
+    });
+
+    if (pendingTest) {
+      return res
+        .status(400)
+        .json({ message: "You already have a pending driving test" });
     }
 
     const newTest = await DrivingTest.create({
       Learner: req.user._id,
-      date: date,
+      date: testDate,
       status: "pending",
       result: "pending"
     });
 
     return res.status(201).json(newTest);
-
   } catch (err) {
     console.log(err);
-    return res.status(500).json({ message: "Server error" });
+    return res.status(400).json({ message: err.message });
   }
 });
 
@@ -124,105 +142,95 @@ router.put("/:id", verifyToken, validateObjectId, async (req, res) => {
       return res.status(404).json({ message: "Driving test not found" });
     }
 
-    if (test.status == "completed" || test.status == "cancelled") {
-      return res.status(400).json({
-        message: "Cannot update this test"
-      });
-    }
+    const testDate = req.body.date || req.body.testDate;
+    const { status, result, examiner } = req.body;
+    const updateData = {};
 
-    if (req.user.role == "learner") {
-      if (test.Learner != req.user._id) {
+    if (req.user.role === "learner") {
+      if (test.Learner.toString() !== req.user._id.toString()) {
         return res.status(403).json({ message: "Access denied" });
       }
-
-      const cancelledTest = await DrivingTest.findByIdAndUpdate(
-        req.params.id,
-        { status: "cancelled" },
-        { new: true }
-      );
-
-      return res.json(cancelledTest);
-    }
-
-    else if (
-      req.user.role == "admin" ||
-      req.user.role == "superAdmin"
+      if (test.result !== "pending") {
+        return res.status(400).json({ message: "Cannot modify a completed test" });
+      }
+      if (testDate) {
+        updateData.date = testDate;
+      }
+    } else if (
+      req.user.role === "admin" ||
+      req.user.role === "superAdmin" ||
+      req.user.role === "examiner"
     ) {
-      if (test.status != "pending") {
-        return res.status(400).json({
-          message: "Only pending tests can be scheduled"
-        });
+      if (testDate) updateData.date = testDate;
+      if (examiner) updateData.examiner = examiner;
+      if (req.user.role === "examiner" && !examiner) {
+        updateData.examiner = req.user._id;
       }
-
-      const { examiner, date } = req.body;
-
-      if (!examiner || !date) {
-        return res.status(400).json({
-          message: "Examiner and date are required"
-        });
+      if (status) {
+        if (!["pending", "scheduled", "completed", "cancelled"].includes(status)) {
+          return res.status(400).json({ message: "Invalid test status" });
+        }
+        updateData.status = status;
       }
-
-      const foundExaminer = await User.findById(examiner);
-
-      if (
-        !foundExaminer ||
-        foundExaminer.role != "examiner" ||
-        !foundExaminer.isActive
-      ) {
-        return res.status(400).json({
-          message: "Invalid examiner"
-        });
+      if (result) {
+        if (!["pending", "passed", "failed"].includes(result)) {
+          return res.status(400).json({ message: "Invalid test result" });
+        }
+        updateData.result = result;
+        if (result === "passed" || result === "failed") {
+          updateData.status = "completed";
+        }
+        if (result === "failed") {
+          updateData.extraHours = 8;
+        }
       }
-
-      const updatedTest = await DrivingTest.findByIdAndUpdate(
-        req.params.id,
-        {
-          examiner: examiner,
-          date: date,
-          status: "scheduled"
-        },
-        { new: true, runValidators: true }
-      );
-
-      return res.json(updatedTest);
-    }
-
-    else if (req.user.role == "examiner") {
-      if (test.examiner != req.user._id) {
-        return res.status(403).json({ message: "Access denied" });
-      }
-
-      if (test.status != "scheduled") {
-        return res.status(400).json({
-          message: "Test must be scheduled"
-        });
-      }
-
-      const { result } = req.body;
-
-      if (result != "passed" && result != "failed") {
-        return res.status(400).json({
-          message: "Result must be passed or failed"
-        });
-      }
-
-      const updatedTest = await DrivingTest.findByIdAndUpdate(
-        req.params.id,
-        {
-          result: result,
-          status: "completed",
-          extraHours: result == "failed" ? 8 : 0
-        },
-        { new: true }
-      );
-
-      return res.json(updatedTest);
-    }
-
-    else {
+    } else {
       return res.status(403).json({ message: "Access denied" });
     }
 
+    const updatedTest = await DrivingTest.findByIdAndUpdate(
+      req.params.id,
+      updateData,
+      { new: true, runValidators: true }
+    );
+
+    return res.json(updatedTest);
+  } catch (err) {
+    console.log(err);
+    return res.status(400).json({ message: err.message });
+  }
+});
+
+router.delete("/:id", verifyToken, validateObjectId, async (req, res) => {
+  try {
+    const test = await DrivingTest.findById(req.params.id);
+
+    if (!test) {
+      return res.status(404).json({ message: "Driving test not found" });
+    }
+
+    if (
+      req.user.role === "learner" &&
+      test.Learner.toString() !== req.user._id.toString()
+    ) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    if (
+      req.user.role !== "learner" &&
+      req.user.role !== "admin" &&
+      req.user.role !== "superAdmin"
+    ) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    if (test.result !== "pending") {
+      return res.status(400).json({ message: "Only pending tests can be deleted" });
+    }
+
+    await DrivingTest.findByIdAndDelete(req.params.id);
+
+    return res.json({ message: "Driving test cancelled successfully" });
   } catch (err) {
     console.log(err);
     return res.status(500).json({ message: "Server error" });

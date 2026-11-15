@@ -7,34 +7,22 @@ const trainingPlanSchema = new mongoose.Schema(
       ref: "User",
       required: true
     },
-
     instructor: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true
     },
-
-    weeklySchedule: [
+    requestedLessons: [
       {
-        day: String,
-        startTime: String,
-        endTime: String
+        date: { type: Date, required: true },
+        hours: { type: Number, required: true, min: 1 }
       }
     ],
-
     status: {
       type: String,
-      enum: [
-        "pending",
-        "active",
-        "rejected",
-        "cancelled",
-        "transferred",
-        "completed"
-      ],
+      enum: ["pending", "active", "rejected", "cancelled", "transferred", "completed"],
       default: "pending"
     },
-
     reason: {
       type: String,
       minLength: 20,
