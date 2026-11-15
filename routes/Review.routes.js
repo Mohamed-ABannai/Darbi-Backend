@@ -1,14 +1,48 @@
 const router = require("express").Router();
+const mongoose = require("mongoose");
 const Review = require("../models/Review");
 const TrainingPlan = require("../models/TrainingPlan");
+const Lesson = require("../models/lesson");
 const verifyToken = require("../middleware/verifyToken");
 const validateObjectId = require("../middleware/validateObjectId");
 
 
-router.get("/", async (req, res) => {
+router.get("/", verifyToken, async (req, res) => {
   try {
-    const reviews = await Review.find()
-      .populate("TrainingPlan");
+    let planFilter = {};
+
+    if (req.user.role === "learner") {
+      planFilter.learner = req.user._id;
+    } else if (req.user.role === "instructor") {
+      planFilter.instructor = req.user._id;
+    } else if (req.user.role !== "admin" && req.user.role !== "superAdmin") {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    if (req.query.instructor) {
+      if (!mongoose.Types.ObjectId.isValid(req.query.instructor)) {
+        return res.status(400).json({ message: "Invalid instructor ID" });
+      }
+
+      if (req.user.role === "learner") {
+        planFilter = { instructor: req.query.instructor };
+      } else if (req.user.role === "instructor" && String(req.user._id) !== req.query.instructor) {
+        return res.status(403).json({ message: "Access denied" });
+      } else if (req.user.role === "admin" || req.user.role === "superAdmin") {
+        planFilter.instructor = req.query.instructor;
+      }
+    }
+
+    const planIds = await TrainingPlan.find(planFilter).distinct("_id");
+    const reviews = await Review.find({ TrainingPlan: { $in: planIds } }).populate({
+      path: "TrainingPlan",
+      populate: req.user.role === "learner" && req.query.instructor
+        ? { path: "instructor", select: "username" }
+        : [
+          { path: "learner", select: "username" },
+          { path: "instructor", select: "username" }
+        ]
+    });
 
     return res.json(reviews);
 
@@ -19,13 +53,29 @@ router.get("/", async (req, res) => {
 });
 
 
-router.get("/:id", validateObjectId, async (req, res) => {
+router.get("/:id", verifyToken, validateObjectId, async (req, res) => {
   try {
     const review = await Review.findById(req.params.id)
       .populate("TrainingPlan");
 
     if (!review) {
       return res.status(404).json({ message: "Review not found" });
+    }
+
+    const planId = review.TrainingPlan._id || review.TrainingPlan;
+    const plan = await TrainingPlan.findById(planId);
+    if (!plan) {
+      return res.status(404).json({ message: "Training plan not found" });
+    }
+
+    const canViewReview =
+      (req.user.role === "learner" && String(plan.learner) === String(req.user._id)) ||
+      (req.user.role === "instructor" && String(plan.instructor) === String(req.user._id)) ||
+      req.user.role === "admin" ||
+      req.user.role === "superAdmin";
+
+    if (!canViewReview) {
+      return res.status(403).json({ message: "Access denied" });
     }
 
     return res.json(review);
@@ -55,9 +105,12 @@ router.post("/", verifyToken, async (req, res) => {
       return res.status(404).json({ message: "Training plan not found" });
     }
 
-    if (plan.learner != req.user._id) {
+    if (String(plan.learner) !== String(req.user._id)) {
       return res.status(403).json({ message: "Access denied" });
     }
+
+    const completedLesson = await Lesson.findOne({ TrainingPlan: plan._id, status: "completed" });
+    if (!completedLesson) return res.status(403).json({ message: "Complete a lesson before reviewing this instructor" });
 
     const existingReview = await Review.findOne({
       TrainingPlan: planId

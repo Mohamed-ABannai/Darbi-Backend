@@ -6,6 +6,23 @@ const verifyToken = require("../middleware/verifyToken");
 const validateObjectId = require("../middleware/validateObjectId");
 const User = require("../models/User");
 
+router.get("/eligibility", verifyToken, async (req, res) => {
+  try {
+    if (req.user.role !== "learner") return res.status(403).json({ message: "Learners only" });
+    const plans = await TrainingPlan.find({ learner: req.user._id });
+    const planIds = plans.map((plan) => plan._id);
+    const completedLessons = await Lesson.find({ TrainingPlan: { $in: planIds }, status: "completed" });
+    const totalHours = completedLessons.reduce((total, lesson) => total + Number(lesson.hours || 0), 0);
+    const previousFails = await DrivingTest.countDocuments({ Learner: req.user._id, result: "failed" });
+    const requiredHours = 22 + previousFails * 8;
+    const activeTest = await DrivingTest.exists({ Learner: req.user._id, status: { $in: ["pending", "scheduled"] } });
+    const hasActivePlan = plans.some((plan) => plan.status === "active");
+    return res.json({ totalHours, requiredHours, remainingHours: Math.max(0, requiredHours - totalHours), eligible: totalHours >= requiredHours && hasActivePlan && !activeTest, hasActivePlan, hasActiveTest: Boolean(activeTest) });
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to check driving test eligibility" });
+  }
+});
+
 router.get("/", verifyToken, async (req, res) => {
   try {
     let filter = {};
@@ -45,20 +62,8 @@ router.post("/", verifyToken, async (req, res) => {
 
     const { date } = req.body;
 
-    if (!date) {
-      return res.status(400).json({ message: "Date is required" });
-    }
-
-    const activePlan = await TrainingPlan.findOne({
-      learner: req.user._id,
-      status: "active"
-    });
-
-    if (!activePlan) {
-      return res.status(400).json({
-        message: "You need an active training plan"
-      });
-    }
+    const testDate = new Date(date);
+    if (!date || Number.isNaN(testDate.getTime()) || testDate <= new Date()) return res.status(400).json({ message: "Choose a valid future test date" });
 
     const existingTest = await DrivingTest.findOne({
       Learner: req.user._id,
@@ -74,6 +79,11 @@ router.post("/", verifyToken, async (req, res) => {
     const trainingPlans = await TrainingPlan.find({
       learner: req.user._id
     });
+
+    const hasActivePlan = trainingPlans.some((plan) => plan.status === "active");
+    if (!hasActivePlan) {
+      return res.status(400).json({ message: "An active training plan is required to request a driving test" });
+    }
 
     const planIds = trainingPlans.map((plan) => plan._id);
 
@@ -101,10 +111,19 @@ router.post("/", verifyToken, async (req, res) => {
       });
     }
 
+    const examiners = await User.find({ role: "examiner", isActive: true }).select("_id");
+    const availableExaminers = [];
+    for (const examiner of examiners) {
+      const conflict = await DrivingTest.exists({ examiner: examiner._id, status: "scheduled", date: testDate });
+      if (!conflict) availableExaminers.push(examiner);
+    }
+    if (availableExaminers.length === 0) return res.status(409).json({ message: "No eligible examiners are available at that time" });
+    const assignedExaminer = availableExaminers[Math.floor(Math.random() * availableExaminers.length)];
     const newTest = await DrivingTest.create({
       Learner: req.user._id,
-      date: date,
-      status: "pending",
+      examiner: assignedExaminer._id,
+      date: testDate,
+      status: "scheduled",
       result: "pending"
     });
 
@@ -135,6 +154,10 @@ router.put("/:id", verifyToken, validateObjectId, async (req, res) => {
         return res.status(403).json({ message: "Access denied" });
       }
 
+      if (req.body.status !== "cancelled") {
+        return res.status(400).json({ message: "Learners can only cancel their driving tests" });
+      }
+
       const cancelledTest = await DrivingTest.findByIdAndUpdate(
         req.params.id,
         { status: "cancelled" },
@@ -162,6 +185,11 @@ router.put("/:id", verifyToken, validateObjectId, async (req, res) => {
         });
       }
 
+      const testDate = new Date(date);
+      if (Number.isNaN(testDate.getTime()) || testDate <= new Date()) {
+        return res.status(400).json({ message: "Choose a valid future test date" });
+      }
+
       const foundExaminer = await User.findById(examiner);
 
       if (
@@ -174,11 +202,21 @@ router.put("/:id", verifyToken, validateObjectId, async (req, res) => {
         });
       }
 
+      const existingTest = await DrivingTest.findOne({
+        _id: { $ne: test._id },
+        examiner,
+        date: testDate,
+        status: "scheduled"
+      });
+      if (existingTest) {
+        return res.status(409).json({ message: "The examiner already has a test at that time" });
+      }
+
       const updatedTest = await DrivingTest.findByIdAndUpdate(
         req.params.id,
         {
           examiner: examiner,
-          date: date,
+          date: testDate,
           status: "scheduled"
         },
         { new: true, runValidators: true }

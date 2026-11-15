@@ -1,44 +1,37 @@
-// imports
-const connectToDB = require('./config/db.js')
-const express = require("express") //importing express package
-const app = express() // creates a express application
-const dotenv = require("dotenv").config() //this allows me to use my .env values in this file
-const morgan = require('morgan')
-const cors = require('cors')
+require("dotenv").config();
 
-// Routes Import
-const authRoutes = require('./routes/auth.routes')
-const trainingPlans=require('./routes/trainingPlans.routes.js')
-const lessonRoutes = require('./routes/lesson.Route')
-const invoiceRoutes = require('./routes/invoice.routs')
-const userRoutes = require('./routes/user.routes.js')
-const drivingTestRoutes = require('./routes/DrivingTest.routes')
-const reviewRoutes = require('./routes/Review.routes.js')
-const paymentRoutes = require('./routes/Payment.routes.js')
+const connectToDB = require("./config/db");
+const express = require("express");
+const morgan = require("morgan");
+const cors = require("cors");
+const { standardLimiter } = require("./middleware/rateLimiters");
+const authRoutes = require("./routes/auth.routes");
+const trainingPlanRoutes = require("./routes/trainingPlans.routes");
+const lessonRoutes = require("./routes/lesson.Route");
+const invoiceRoutes = require("./routes/invoice.routs");
+const userRoutes = require("./routes/user.routes");
+const drivingTestRoutes = require("./routes/DrivingTest.routes");
+const reviewRoutes = require("./routes/Review.routes");
+const paymentRoutes = require("./routes/Payment.routes");
 
-// Middleware
-app.use(
-    cors({
-        origin: process.env.CLIENT_URL || 'http://localhost:5173',
-    })
-);
-app.use(express.json())
-app.use(morgan('dev'))
+const app = express();
 
+app.use(cors({
+  origin: process.env.CLIENT_URL || "http://localhost:5173"
+}));
+app.use(standardLimiter);
+app.use(express.json());
+app.use(morgan("dev"));
 
+app.use("/auth", authRoutes);
+app.use("/training-plans", trainingPlanRoutes);
+app.use("/users", userRoutes);
+app.use("/payments", paymentRoutes);
+app.use("/driving-tests", drivingTestRoutes);
+app.use("/lessons", lessonRoutes);
+app.use("/invoices", invoiceRoutes);
+app.use("/reviews", reviewRoutes);
 
-// Routes
-app.use('/auth',authRoutes)
-app.use('/training-plans',trainingPlans)
-app.use('/users',userRoutes)
-app.use('/payments', paymentRoutes)
-app.use('/driving-tests' , drivingTestRoutes)
-app.use('/lessons', lessonRoutes)
-app.use('/invoices', invoiceRoutes)
-app.use('/reviews', reviewRoutes);
-
-
-// connect to database and listen on Port 3000
 async function startServer() {
     const PORT = process.env.PORT || 3000;
     await connectToDB();
@@ -47,4 +40,7 @@ async function startServer() {
         console.log(`App is running on port ${PORT}`);
     });
 }
-startServer();
+startServer().catch((error) => {
+    console.error("Failed to start the server", error);
+    process.exitCode = 1;
+});

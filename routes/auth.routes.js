@@ -18,7 +18,6 @@ router.post("/sign-up", upload.single("documents"), async (req, res) => {
   try {
     const { username, password, phone, email, dateOfBirth, role } = req.body;
 
-    // Validation
     if (!username || !password || !phone || !email || !dateOfBirth) {
       return res.status(400).json({ message: "All fields are required." });
     }
@@ -32,6 +31,11 @@ router.post("/sign-up", upload.single("documents"), async (req, res) => {
     }
 
     if (role === "instructor") {
+      const hourlyRate = Number(req.body.hourlyRate);
+      if (!Number.isFinite(hourlyRate) || hourlyRate < 22) {
+        return res.status(400).json({ message: "Instructor hourly rate must be at least 22 BHD." });
+      }
+
       if (!req.file) {
         return res.status(400).json({ message: "Instructor document is required." });
       }
@@ -48,6 +52,7 @@ router.post("/sign-up", upload.single("documents"), async (req, res) => {
       email,
       dateOfBirth,
       role,
+      hourlyRate: role === "instructor" ? Number(req.body.hourlyRate) : undefined,
       isApproved: false,
       isActive: true,
       documents: role === "instructor" ? {
@@ -111,7 +116,6 @@ router.post("/sign-in", authLimiter, async (req, res) => {
       return res.status(403).json({ message: "Account is deactivated." });
     }
 
-    // Construct the payload
     const payload = {
       username: user.username,
       _id: user._id,

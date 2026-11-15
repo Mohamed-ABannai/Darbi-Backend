@@ -7,6 +7,8 @@ const paymentSchema = new mongoose.Schema(
       ref: "Lesson",
       required: true
     },
+    learner: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    instructor: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
 
     amount: {
       type: Number,
@@ -17,13 +19,13 @@ const paymentSchema = new mongoose.Schema(
     method: {
       type: String,
       enum: ["Cash", "benefitPay", "bank transfer"],
-      required: true
+      required: false
     },
 
     status: {
       type: String,
-      enum: ["pending", "completed", "rejected"],
-      default: "pending"
+      enum: ["unsubmitted", "pending", "completed", "rejected"],
+      default: "unsubmitted"
     },
 
     cancellationReason: {

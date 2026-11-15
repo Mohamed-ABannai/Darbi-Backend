@@ -1,5 +1,6 @@
 const router = require("express").Router();
 const PDFDocument = require("pdfkit");
+const createInvoicePdf = require("../pdf/createInvoicePdf");
 const Invoice = require("../models/invoice");
 const Payment = require("../models/Payment");
 const verifyToken = require("../middleware/verifyToken");
@@ -18,7 +19,13 @@ router.get("/:id/pdf", verifyToken, validateObjectId, async (req, res) => {
 
     const payment = await Payment.findById(invoice.payment).populate({
       path: "lesson",
-      populate: { path: "TrainingPlan" }
+      populate: {
+        path: "TrainingPlan",
+        populate: [
+          { path: "learner", select: "username" },
+          { path: "instructor", select: "username" }
+        ]
+      }
     });
 
     if (!payment || !payment.lesson || !payment.lesson.TrainingPlan) {
@@ -27,9 +34,12 @@ router.get("/:id/pdf", verifyToken, validateObjectId, async (req, res) => {
 
     const plan = payment.lesson.TrainingPlan;
 
+    const learnerId = plan.learner?._id || plan.learner;
+    const instructorId = plan.instructor?._id || plan.instructor;
+
     if (
-      plan.learner != req.user._id &&
-      plan.instructor != req.user._id &&
+      String(learnerId) !== String(req.user._id) &&
+      String(instructorId) !== String(req.user._id) &&
       req.user.role != "admin" &&
       req.user.role != "superAdmin"
     ) {
@@ -40,7 +50,15 @@ router.get("/:id/pdf", verifyToken, validateObjectId, async (req, res) => {
       return res.status(403).json({ message: "Payment is not completed." });
     }
 
-    const doc = new PDFDocument();
+    const doc = new PDFDocument({
+      size: "A4",
+      margins: { top: 48, right: 48, bottom: 58, left: 48 },
+      bufferPages: true,
+      info: {
+        Title: `DARBI invoice ${invoice._id}`,
+        Author: "DARBI"
+      }
+    });
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
@@ -49,16 +67,13 @@ router.get("/:id/pdf", verifyToken, validateObjectId, async (req, res) => {
     );
 
     doc.pipe(res);
-
-    doc.fontSize(20).text("DARBI Invoice");
-    doc.moveDown();
-
-    doc.fontSize(12).text(`Invoice ID: ${invoice._id}`);
-    doc.text(`Date: ${invoice.date.toDateString()}`);
-    doc.text(`Amount: ${invoice.amount} BHD`);
-    doc.text(`Payment method: ${payment.method}`);
-    doc.text(`Payment status: ${payment.status}`);
-
+    createInvoicePdf(doc, {
+      invoice,
+      payment,
+      lesson: payment.lesson,
+      learner: plan.learner,
+      instructor: plan.instructor
+    });
     doc.end();
 
   } catch (err) {

@@ -154,7 +154,7 @@ router.put("/:id", verifyToken, validateObjectId, upload.single("profileImage"),
         }
       }
 
-      const updatedUser = await User.findByIdAndUpdate(
+      await User.findByIdAndUpdate(
         req.params.id,
         updateData,
         { new: true, runValidators: true }
@@ -186,7 +186,7 @@ router.put("/:id", verifyToken, validateObjectId, upload.single("profileImage"),
           req.body.isApproved === true || req.body.isApproved === "true";
       }
 
-      const updatedUser = await User.findByIdAndUpdate(
+      await User.findByIdAndUpdate(
         req.params.id,
         updateData,
         { new: true, runValidators: true }
@@ -225,7 +225,7 @@ router.delete("/:id", verifyToken, validateObjectId, async (req, res) => {
       req.user.role == "admin" ||
       req.user.role == "superAdmin"
     ) {
-      const deletedUser = await User.findByIdAndUpdate(
+      await User.findByIdAndUpdate(
         req.params.id,
         { isActive: false },
         { new: true }

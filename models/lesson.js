@@ -15,10 +15,16 @@ const lessonSchema = new mongoose.Schema(
             required: true,
             min:0
         },
+        hourlyRate: {
+            type: Number,
+            min: 0,
+        },
+        hourlyRateSnapshot: { type: Number, min: 0 },
+        amountSnapshot: { type: Number, min: 0 },
         status: {
             type: String,
-            enum: ['scheduled', 'completed', 'cancelled'],
-            default: 'scheduled',
+            enum: ['pending', 'scheduled', 'completed', 'cancelled', 'rejected'],
+            default: 'pending',
         },
         cancellationReason: {
             type: String,

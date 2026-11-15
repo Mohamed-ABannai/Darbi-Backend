@@ -1,4 +1,5 @@
 const router = require("express").Router();
+const mongoose = require("mongoose");
 const verifyToken = require("../middleware/verifyToken");
 const validateObjectId = require("../middleware/validateObjectId");
 const Payment = require("../models/Payment");
@@ -7,37 +8,12 @@ const Invoice = require("../models/invoice");
 
 router.get("/", verifyToken, async (req, res) => {
   try {
-    const allPayments = await Payment.find().populate({
-      path: "lesson",
-      populate: { path: "TrainingPlan" }
-    });
-
-    if (req.user.role == "admin" || req.user.role == "superAdmin") {
-      return res.json(allPayments);
-    }
-    else if (req.user.role == "learner") {
-      const myPayments = allPayments.filter(
-        (payment) =>
-          payment.lesson &&
-          payment.lesson.TrainingPlan &&
-          payment.lesson.TrainingPlan.learner == req.user._id
-      );
-
-      return res.json(myPayments);
-    }
-    else if (req.user.role == "instructor") {
-      const instructorPayments = allPayments.filter(
-        (payment) =>
-          payment.lesson &&
-          payment.lesson.TrainingPlan &&
-          payment.lesson.TrainingPlan.instructor == req.user._id
-      );
-
-      return res.json(instructorPayments);
-    }
-    else {
-      return res.status(403).json({ message: "Access denied" });
-    }
+    const filter = {};
+    if (req.user.role === "learner") filter.learner = req.user._id;
+    else if (req.user.role === "instructor") filter.instructor = req.user._id;
+    else if (req.user.role !== "admin" && req.user.role !== "superAdmin") return res.status(403).json({ message: "Access denied" });
+    const allPayments = await Payment.find(filter).populate("learner", "username").populate("instructor", "username").populate({ path: "lesson", populate: { path: "TrainingPlan", populate: [{ path: "learner", select: "username" }, { path: "instructor", select: "username" }] } });
+    return res.json(allPayments);
 
   } catch (err) {
     console.log(err);
@@ -51,44 +27,18 @@ router.post("/", verifyToken, async (req, res) => {
       return res.status(403).json({ message: "Learners only" });
     }
 
-    const { lesson, amount, method } = req.body;
-
-    if (!lesson || !amount || !method || amount <= 0) {
-      return res.status(400).json({ message: "Invalid payment details" });
-    }
-
-    const foundLesson = await Lesson.findById(lesson)
-      .populate("TrainingPlan");
-
-    if (!foundLesson || !foundLesson.TrainingPlan) {
-      return res.status(404).json({ message: "Lesson not found" });
-    }
-
-    if (foundLesson.TrainingPlan.learner != req.user._id) {
-      return res.status(403).json({
-        message: "You can only pay for your own lessons"
-      });
-    }
-
-    const existingPayment = await Payment.findOne({
-      lesson: lesson,
-      status: { $in: ["pending", "completed"] }
-    });
-
-    if (existingPayment) {
-      return res.status(400).json({
-        message: "Payment already exists for this lesson"
-      });
-    }
-
-    const newPayment = await Payment.create({
-      lesson,
-      amount,
-      method,
-      status: "pending"
-    });
-
-    return res.status(201).json(newPayment);
+    const { lesson: lessonId, method } = req.body;
+    if (!lessonId || !["Cash", "benefitPay", "bank transfer"].includes(method)) return res.status(400).json({ message: "Choose a completed lesson and supported payment method" });
+    if (!mongoose.Types.ObjectId.isValid(lessonId)) return res.status(400).json({ message: "Invalid lesson ID" });
+    const payment = await Payment.findOne({ lesson: lessonId, learner: req.user._id });
+    if (!payment) return res.status(404).json({ message: "Payment not found for this learner" });
+    if (payment.status !== "unsubmitted") return res.status(400).json({ message: "This payment has already been submitted" });
+    const lesson = await Lesson.findById(lessonId);
+    if (!lesson || lesson.status !== "completed") return res.status(400).json({ message: "Only completed lessons can be paid" });
+    payment.method = method;
+    payment.status = "pending";
+    await payment.save();
+    return res.json(payment);
 
   } catch (err) {
     console.log(err);
@@ -124,23 +74,13 @@ router.put("/:id", verifyToken, validateObjectId, async (req, res) => {
         return res.status(403).json({ message: "Access denied" });
       }
 
-      const { amount, method } = req.body;
-      const updateData = {};
-
-      if (amount !== undefined) {
-        if (amount <= 0) {
-          return res.status(400).json({ message: "Invalid amount" });
-        }
-        updateData.amount = amount;
-      }
-
-      if (method !== undefined) {
-        updateData.method = method;
-      }
+      const { method } = req.body;
+      if (!payment.lesson || payment.lesson.status !== "completed") return res.status(400).json({ message: "Only completed lessons can be paid" });
+      if (!["Cash", "benefitPay", "bank transfer"].includes(method)) return res.status(400).json({ message: "Choose a supported payment method" });
 
       const updatedPayment = await Payment.findByIdAndUpdate(
         req.params.id,
-        updateData,
+        { method },
         { new: true, runValidators: true }
       );
 
@@ -152,6 +92,7 @@ router.put("/:id", verifyToken, validateObjectId, async (req, res) => {
       req.user.role == "admin" ||
       req.user.role == "superAdmin"
     ) {
+      if (payment.lesson.status !== "completed") return res.status(400).json({ message: "Only completed lessons can have payment confirmed" });
       if (
         req.user.role == "instructor" &&
         plan.instructor != req.user._id
@@ -184,7 +125,7 @@ router.put("/:id", verifyToken, validateObjectId, async (req, res) => {
         });
 
         if (!existingInvoice) {
-          const newInvoice = await Invoice.create({
+          await Invoice.create({
             payment: payment._id,
             date: new Date(),
             amount: payment.amount,
